@@ -1588,6 +1588,9 @@ export default function Home() {
             <a href="#how-it-works" className="transition hover:text-white">
               How it works
             </a>
+            <a href="#features" className="transition hover:text-white">
+              Features
+            </a>
             <span className="rounded-full border border-white/10 px-3 py-1.5 text-xs text-slate-300">
               Campus placement prep
             </span>
@@ -1660,7 +1663,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-white/10 bg-[#11131d]/90 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-7">
+        <section id="setup" className="rounded-3xl border border-white/10 bg-[#11131d]/90 p-5 shadow-2xl shadow-black/30 backdrop-blur-xl sm:p-7">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs font-medium uppercase tracking-[0.2em] text-violet-300">
@@ -1888,6 +1891,119 @@ export default function Home() {
           </form>
         </section>
       </div>
+
+      {/* Product walkthrough: explains the existing features without changing the setup UI. */}
+      <section id="features" className="relative z-10 border-t border-white/[0.07] bg-[#0b0d15]/70">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-300">Inside GD Arena</p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Everything you need to practise a better GD.</h2>
+            <p className="mt-4 text-sm leading-7 text-slate-400 sm:text-base">A guided practice room, realistic AI perspectives and a useful debrief — all in one session. Choose your settings above, then explore what each feature does.</p>
+          </div>
+
+          <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[
+              { n: "01", icon: "✳", title: "Ananya, your moderator", text: "Ananya opens the discussion, sets the context and helps the conversation get moving. Her opening statement is generated around your topic, format and language." },
+              { n: "02", icon: "◉", title: "Different AI viewpoints", text: "Practise with 3–5 AI participants who can bring contrasting perspectives to the topic. Their responses follow your contribution, so you can practise reacting rather than memorising a script." },
+              { n: "03", icon: "⌁", title: "Speak naturally", text: "Use your microphone to speak in your own words. Live captions show recognised speech, and the microphone pauses while AI voices respond before resuming for your next turn." },
+              { n: "04", icon: "◷", title: "A timed practice session", text: "Choose a 3, 5 or 8-minute session. The timer helps you practise making a point, supporting it with a reason or example, and keeping your contribution focused." },
+              { n: "05", icon: "◎", title: "Optional camera practice", text: "Turn on your camera if you want to practise presenting on screen. The current camera feature estimates visible frame-to-frame movement; it does not detect confidence, emotion or personality." },
+              { n: "06", icon: "↗", title: "A report you can use", text: "At the end, review your transcribed word count, sentence estimates, possible filler words, AI discussion highlights and practical exercises for your next session." },
+            ].map((feature) => (
+              <article key={feature.n} className="group rounded-2xl border border-white/[0.08] bg-[#11131d]/75 p-5 transition duration-200 hover:-translate-y-0.5 hover:border-violet-400/25 hover:bg-[#131622] sm:p-6">
+                <div className="flex items-center justify-between">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-xl border border-violet-400/15 bg-violet-400/[0.08] text-lg text-violet-200">{feature.icon}</span>
+                  <span className="text-xs font-medium tracking-widest text-slate-600">{feature.n}</span>
+                </div>
+                <h3 className="mt-5 text-base font-semibold text-slate-100">{feature.title}</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-400">{feature.text}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="relative z-10 border-t border-white/[0.07]">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 py-16 sm:px-8 sm:py-20 lg:grid-cols-[0.8fr_1.2fr] lg:gap-16">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-sky-300">How it works</p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">From first point to final takeaway.</h2>
+            <p className="mt-4 text-sm leading-7 text-slate-400">No friends to coordinate with and no need to prepare a perfect speech. Use each round to practise thinking clearly under a little time pressure.</p>
+            <a href="#setup" className="mt-6 inline-flex items-center gap-2 rounded-xl bg-violet-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-violet-400">Set up a practice round <span aria-hidden="true">→</span></a>
+          </div>
+          <div className="space-y-3">
+            {[
+              { n: "1", title: "Choose your topic and format", text: "Pick a suggested topic or enter your own. Select the language, panel size and time limit that fit your goal." },
+              { n: "2", title: "Listen to the opening, then contribute", text: "Ananya introduces the topic. Allow microphone access and share your view; live captions help you see what the browser recognised." },
+              { n: "3", title: "Listen, respond and build on ideas", text: "After a pause in your speech, the AI panel responds in sequence. Pay attention to the different arguments and practise adding a reason, example or respectful counterpoint." },
+              { n: "4", title: "Review your session report", text: "Look over your transcript and rough speaking indicators. Use the action plan and learning links as practice suggestions, not as a definitive assessment of your ability." },
+            ].map((step) => (
+              <div key={step.n} className="flex gap-4 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 sm:p-6">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-violet-400/25 bg-violet-400/[0.08] text-sm font-semibold text-violet-200">{step.n}</span>
+                <div><h3 className="text-sm font-semibold text-slate-100">{step.title}</h3><p className="mt-2 text-sm leading-6 text-slate-400">{step.text}</p></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="relative z-10 border-t border-white/[0.07] bg-[#0b0d15]/70">
+        <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
+          <div className="grid gap-8 lg:grid-cols-2 lg:gap-12">
+            <div className="rounded-3xl border border-emerald-400/15 bg-emerald-400/[0.035] p-6 sm:p-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">Get more from each round</p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight">A simple GD structure to try</h2>
+              <div className="mt-6 space-y-4">
+                {[
+                  ["Make a point", "State your view in one clear sentence."],
+                  ["Give a reason", "Explain why you believe it, instead of repeating the claim."],
+                  ["Add an example", "Use a real-world example, fact or practical situation where possible."],
+                  ["Connect to the group", "Acknowledge a previous speaker, add a new angle, or respectfully disagree."],
+                ].map(([title, text], index) => (
+                  <div key={title} className="flex gap-3"><span className="mt-0.5 text-sm font-semibold text-emerald-300">0{index + 1}</span><div><p className="text-sm font-medium text-slate-100">{title}</p><p className="mt-1 text-sm leading-6 text-slate-400">{text}</p></div></div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-3xl border border-sky-400/15 bg-sky-400/[0.035] p-6 sm:p-8">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-sky-300">Good to know</p>
+              <h2 className="mt-3 text-2xl font-semibold tracking-tight">Your privacy and the feedback</h2>
+              <div className="mt-6 space-y-4 text-sm leading-6 text-slate-400">
+                <p><strong className="text-slate-200">Camera is optional.</strong> You can practise without enabling it. The visible movement estimate is a simple motion signal, not an AI confidence or emotion detector.</p>
+                <p><strong className="text-slate-200">Microphone support varies.</strong> Speech recognition depends on browser support and permissions. If recognition is unavailable, try a supported browser such as current Chrome and check microphone access.</p>
+                <p><strong className="text-slate-200">Voice quality varies.</strong> AI replies are spoken using voices available in your browser or operating system, so the exact voice can differ between devices.</p>
+                <p><strong className="text-slate-200">Treat the report as a guide.</strong> Word counts and filler-word estimates come from recognised text. Transcription may miss words, so use the report alongside your own review.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="relative z-10 border-t border-white/[0.07]">
+        <div className="mx-auto max-w-4xl px-5 py-16 sm:px-8 sm:py-20">
+          <div className="text-center">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-300">Quick answers</p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Before you enter the arena.</h2>
+          </div>
+          <div className="mt-8 divide-y divide-white/[0.08] rounded-2xl border border-white/[0.08] bg-[#11131d]/60 px-5 sm:px-7">
+            {[
+              { q: "Do I need other people to practise?", a: "No. The AI moderator and panel are designed to let you practise on your own." },
+              { q: "When does the AI panel respond?", a: "The current flow waits for around five seconds without new recognised speech before submitting your latest spoken turn. The microphone pauses while the panel replies and should resume afterward." },
+              { q: "Can I choose Hindi or Hinglish?", a: "Yes. Choose English, Hindi or Hinglish in the setup form. Speech recognition and browser voice availability can vary by language and device." },
+              { q: "Does the camera tell me how confident I look?", a: "No. The current camera feature estimates frame-to-frame movement only. It cannot reliably infer confidence, emotions or personality." },
+              { q: "What will the report tell me?", a: "It shows session time, transcribed word and sentence estimates, possible filler words, the transcript, AI discussion highlights and suggested exercises. These indicators are approximate, not a formal score." },
+            ].map((item) => (
+              <details key={item.q} className="group py-5">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-left text-sm font-medium text-slate-200 marker:hidden">{item.q}<span className="text-lg text-violet-300 transition group-open:rotate-45">+</span></summary>
+                <p className="mt-3 max-w-3xl pr-8 text-sm leading-6 text-slate-400">{item.a}</p>
+              </details>
+            ))}
+          </div>
+          <div className="mt-10 text-center">
+            <p className="text-sm text-slate-400">Ready to practise your next point?</p>
+            <a href="#setup" className="mt-4 inline-flex items-center gap-2 rounded-xl bg-violet-500 px-5 py-3.5 text-sm font-semibold text-white shadow-lg shadow-violet-500/20 transition hover:bg-violet-400">Build your arena <span aria-hidden="true">→</span></a>
+          </div>
+        </div>
+      </section>
 
       <footer className="relative z-10 border-t border-white/[0.07]">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-8">
