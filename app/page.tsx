@@ -66,6 +66,69 @@ type DiscussionTurn = {
   text: string;
 };
 
+
+function AnanyaAvatar({
+  speaking = false,
+  size = "md",
+}: {
+  speaking?: boolean;
+  size?: "sm" | "md" | "lg";
+}) {
+  const dimensions = size === "lg" ? "h-36 w-36 sm:h-44 sm:w-44" : size === "sm" ? "h-10 w-10" : "h-12 w-12";
+  return (
+    <div
+      className={`relative isolate shrink-0 ${dimensions} ${speaking ? "animate-pulse" : ""}`}
+      aria-label={`Ananya, AI moderator${speaking ? ", speaking" : ""}`}
+      role="img"
+    >
+      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-emerald-300/40 via-teal-400/20 to-cyan-400/30 blur-xl" />
+      <svg viewBox="0 0 160 160" className="relative h-full w-full drop-shadow-[0_12px_28px_rgba(16,185,129,0.18)]" aria-hidden="true">
+        <defs>
+          <linearGradient id="ananya-bg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#123b3a" />
+            <stop offset="100%" stopColor="#101827" />
+          </linearGradient>
+          <linearGradient id="ananya-shirt" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#6ee7b7" />
+            <stop offset="100%" stopColor="#0f766e" />
+          </linearGradient>
+        </defs>
+        <circle cx="80" cy="80" r="77" fill="url(#ananya-bg)" stroke="#6ee7b7" strokeOpacity=".35" strokeWidth="1.5" />
+        <circle cx="80" cy="80" r="68" fill="#0b1220" fillOpacity=".35" />
+        <path d="M30 145c5-26 22-39 50-39s45 13 50 39" fill="url(#ananya-shirt)" />
+        <path d="M61 104l19 19 19-19-8-13H69z" fill="#f3c7a6" />
+        <path d="M43 72c-4-28 8-49 37-51 31-2 43 21 37 54l-7 23H50z" fill="#211a22" />
+        <ellipse cx="80" cy="70" rx="31" ry="38" fill="#c98562" />
+        <path d="M49 64c-3-23 8-43 31-43 24 0 36 18 32 39-8-3-15-12-19-21-11 12-27 18-44 18z" fill="#211a22" />
+        <path d="M50 60c-9 22-2 44 7 51l-6-30zM110 57c10 20 3 44-6 53l6-32z" fill="#211a22" />
+        <path d="M63 68q7-5 13 0" fill="none" stroke="#57352f" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M84 68q7-5 13 0" fill="none" stroke="#57352f" strokeWidth="2.5" strokeLinecap="round" />
+        <ellipse cx="70" cy="75" rx="3.3" ry="4" fill="#211a22" />
+        <ellipse cx="91" cy="75" rx="3.3" ry="4" fill="#211a22" />
+        <circle cx="71" cy="73.5" r="1" fill="#fff" />
+        <circle cx="92" cy="73.5" r="1" fill="#fff" />
+        <path d="M80 77l-3 10 5 1" fill="none" stroke="#a8664f" strokeWidth="2" strokeLinecap="round" />
+        <path d={speaking ? "M70 94q10 12 20 0q-10-4-20 0" : "M70 93q10 9 20 0"} fill={speaking ? "#743b3a" : "none"} stroke="#7f3f39" strokeWidth="2.5" strokeLinecap="round" />
+        <path d="M63 105l17 16 17-16 10 8-12 28H65l-12-28z" fill="#ecfdf5" />
+        <path d="M31 145q4-23 23-31l26 29 26-29q19 8 23 31" fill="url(#ananya-shirt)" />
+        <circle cx="125" cy="34" r="4" fill="#a7f3d0" />
+        <circle cx="35" cy="48" r="2.5" fill="#67e8f9" />
+      </svg>
+      {speaking && (
+        <span className="absolute -bottom-1 left-1/2 flex -translate-x-1/2 items-end gap-0.5 rounded-full border border-emerald-200/20 bg-[#0b1220] px-2 py-1">
+          {[0, 1, 2, 3, 4].map((bar) => (
+            <span
+              key={bar}
+              className="w-0.5 animate-pulse rounded-full bg-emerald-300"
+              style={{ height: `${5 + (bar % 3) * 3}px`, animationDelay: `${bar * 90}ms` }}
+            />
+          ))}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const [selected, setSelected] = useState(topics[0].name);
   const [topic, setTopic] = useState(topics[0].topic);
@@ -93,6 +156,12 @@ export default function Home() {
   const [discussionTurns, setDiscussionTurns] = useState<DiscussionTurn[]>([]);
   const [autoResponding, setAutoResponding] = useState(false);
   const [activeSpeaker, setActiveSpeaker] = useState("");
+  const [cameraOn, setCameraOn] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const [movementLevel, setMovementLevel] = useState(0);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const previousFrameRef = useRef<Uint8Array | null>(null);
 
   const recognitionRef = useRef<RecognitionInstance | null>(null);
   const mountedRef = useRef(false);
@@ -389,12 +458,78 @@ export default function Home() {
     speakText,
   ]);
 
+  const stopCamera = useCallback(() => {
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+    previousFrameRef.current = null;
+    setCameraOn(false);
+  }, []);
+
+  const startCamera = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraError("Camera access needs a supported browser and HTTPS (or localhost).");
+      return;
+    }
+    try {
+      setCameraError("");
+      setMovementLevel(0);
+      previousFrameRef.current = null;
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } },
+        audio: false,
+      });
+      cameraStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        await videoRef.current.play();
+      }
+      setCameraOn(true);
+    } catch {
+      setCameraError("Camera permission was denied or no camera is available. Check your browser permissions.");
+      stopCamera();
+    }
+  }, [stopCamera]);
+
+  // Lightweight on-device motion estimate. This is not a psychological confidence detector.
+  useEffect(() => {
+    if (!cameraOn) return;
+    let frameId = 0;
+    let lastSample = 0;
+    const canvas = document.createElement("canvas");
+    canvas.width = 48;
+    canvas.height = 36;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    const sample = (time: number) => {
+      frameId = window.requestAnimationFrame(sample);
+      const video = videoRef.current;
+      if (!context || !video || video.readyState < 2 || time - lastSample < 700) return;
+      lastSample = time;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+      const current = new Uint8Array(canvas.width * canvas.height);
+      for (let i = 0, j = 0; i < pixels.length; i += 4, j++) {
+        current[j] = Math.round((pixels[i] * 3 + pixels[i + 1] * 6 + pixels[i + 2]) / 10);
+      }
+      const previous = previousFrameRef.current;
+      if (previous) {
+        let difference = 0;
+        for (let i = 0; i < current.length; i++) difference += Math.abs(current[i] - previous[i]);
+        setMovementLevel(Math.min(100, Math.round((difference / current.length) * 2.4)));
+      }
+      previousFrameRef.current = current;
+    };
+    frameId = window.requestAnimationFrame(sample);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [cameraOn]);
+
   // Clean up audio and microphone when this page unmounts.
   useEffect(() => {
     mountedRef.current = true;
 
     return () => {
       mountedRef.current = false;
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
       roomRunRef.current += 1;
       speechRunRef.current += 1;
 
@@ -700,6 +835,7 @@ export default function Home() {
   }
 
   function leaveRoom() {
+    stopCamera();
     stopListening();
     stopAllSpeech();
 
@@ -716,6 +852,7 @@ export default function Home() {
   }
 
   function endSession() {
+    stopCamera();
     stopListening();
     stopAllSpeech();
 
@@ -795,6 +932,7 @@ export default function Home() {
                     ["Your words", String(transcriptWords)],
                     ["Your sentences", String(userSentences)],
                     ["AI contributions", String(discussionTurns.length)],
+                    ...(movementLevel > 0 ? [["Camera movement", movementLevel < 18 ? "Low" : movementLevel < 45 ? "Moderate" : "High"]] : []),
                   ].map(([label, value]) => (
                     <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-4">
                       <p className="text-xs text-slate-500">{label}</p>
@@ -893,6 +1031,37 @@ export default function Home() {
 
               <div className="grid gap-6 lg:grid-cols-[1fr_310px]">
                 <section className="rounded-3xl border border-white/10 bg-[#11131d] p-5 sm:p-7">
+                  <div className="mb-6 rounded-2xl border border-sky-400/20 bg-sky-400/[0.04] p-4 sm:p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-300">Live camera coach</p>
+                        <h3 className="mt-1 text-lg font-semibold">Practice your on-camera presence</h3>
+                        <p className="mt-1 max-w-xl text-xs leading-5 text-slate-400">Camera analysis stays in your browser. We estimate visible movement only—not your true confidence, emotions, or personality.</p>
+                      </div>
+                      <button type="button" onClick={() => cameraOn ? stopCamera() : void startCamera()} className={`rounded-xl px-4 py-2.5 text-sm font-semibold transition ${cameraOn ? "border border-rose-400/30 bg-rose-400/10 text-rose-200 hover:bg-rose-400/20" : "bg-sky-400 text-slate-950 hover:bg-sky-300"}`}>
+                        {cameraOn ? "Turn camera off" : "Turn camera on"}
+                      </button>
+                    </div>
+                    <div className="mt-4 grid gap-4 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                      <div className="relative aspect-video overflow-hidden rounded-xl border border-white/10 bg-black/40">
+                        <video ref={videoRef} autoPlay muted playsInline className={`h-full w-full object-cover ${cameraOn ? "scale-x-[-1]" : "hidden"}`} />
+                        {!cameraOn && <div className="flex h-full min-h-36 flex-col items-center justify-center gap-2 text-slate-500"><span className="text-3xl">◉</span><span className="text-xs">Camera is off</span></div>}
+                        {cameraOn && <span className="absolute left-3 top-3 rounded-full bg-rose-500/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-white">● Live</span>}
+                      </div>
+                      <div className="space-y-3">
+                        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                          <div className="flex items-center justify-between gap-2"><span className="text-xs text-slate-400">Visible movement</span><span className="text-sm font-semibold text-sky-200">{cameraOn ? movementLevel < 18 ? "Low" : movementLevel < 45 ? "Moderate" : "High" : "—"}</span></div>
+                          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full rounded-full bg-sky-300 transition-all duration-500" style={{ width: `${cameraOn ? movementLevel : 0}%` }} /></div>
+                          <p className="mt-2 text-[11px] leading-5 text-slate-500">A motion estimate from camera frames, not a confidence score. Some natural gestures are useful.</p>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                          <p className="text-xs font-medium text-slate-200">Ananya’s tip</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-400">Keep your face comfortably in frame, look toward the camera when making a key point, and use relaxed, purposeful gestures.</p>
+                        </div>
+                        {cameraError && <p role="alert" className="text-xs leading-5 text-rose-300">{cameraError}</p>}
+                      </div>
+                    </div>
+                  </div>
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h2 className="font-semibold">The discussion table</h2>
@@ -922,11 +1091,13 @@ export default function Home() {
                             : "border-white/[0.08] bg-white/[0.025]"
                         }`}
                       >
-                        <div
-                          className={`flex h-12 w-12 items-center justify-center rounded-2xl ${member.color} text-lg font-semibold text-slate-950`}
-                        >
-                          {member.initials}
-                        </div>
+                        {member.name === moderator.name ? (
+                          <AnanyaAvatar speaking={activeSpeaker === "Ananya" || moderatorSpeaking} />
+                        ) : (
+                          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${member.color} text-lg font-semibold text-slate-950`}>
+                            {member.initials}
+                          </div>
+                        )}
 
                         <p className="mt-4 text-sm font-semibold">
                           {member.name}
@@ -970,9 +1141,7 @@ export default function Home() {
                   {/* Moderator opening */}
                   <div className="mt-5 rounded-2xl border border-emerald-400/20 bg-emerald-400/[0.04] p-5 sm:p-6">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-400/15 font-semibold text-emerald-300">
-                        A
-                      </div>
+                      <AnanyaAvatar speaking={moderatorSpeaking} size="sm" />
 
                       <div className="flex-1">
                         <p className="text-sm font-semibold">Ananya</p>
@@ -1156,13 +1325,32 @@ export default function Home() {
                         type="button"
                         onClick={listening ? stopListening : startListening}
                         disabled={autoResponding}
-                        className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
-                          listening
-                            ? "border border-rose-400/30 bg-rose-400/10 text-rose-200 hover:bg-rose-400/20"
-                            : "bg-violet-500 text-white hover:bg-violet-400"
-                        }`}
+                        aria-pressed={listening}
+                        className="group flex min-h-[68px] flex-1 items-center justify-center gap-3 rounded-2xl border border-white/[0.09] bg-white/[0.035] px-4 py-3 text-left transition hover:border-violet-300/30 hover:bg-white/[0.055] disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        {listening ? "■ Stop listening" : "🎙 Start speaking"}
+                        <span className="relative flex h-12 w-12 shrink-0 items-center justify-center">
+                          <span className={`absolute inset-0 rounded-full bg-gradient-to-br from-cyan-300 via-violet-400 to-pink-400 blur-md transition-opacity ${listening ? "animate-pulse opacity-90" : "opacity-45 group-hover:opacity-75"}`} />
+                          <span className={`absolute inset-0 rounded-full bg-gradient-to-br from-cyan-300 via-violet-500 to-pink-400 p-[2px] ${listening ? "animate-spin" : "transition-transform group-hover:scale-105"}`}>
+                            <span className="flex h-full w-full items-center justify-center rounded-full bg-[#11131d]">
+                              {listening ? (
+                                <span className="flex h-5 items-center gap-[3px]">
+                                  {[0, 1, 2, 3, 4].map((bar) => (
+                                    <span key={bar} className="w-[3px] animate-pulse rounded-full bg-cyan-200" style={{ height: `${8 + (bar % 3) * 5}px`, animationDelay: `${bar * 100}ms` }} />
+                                  ))}
+                                </span>
+                              ) : (
+                                <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                                  <rect x="9" y="3" width="6" height="12" rx="3" />
+                                  <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-4 0h8" strokeLinecap="round" />
+                                </svg>
+                              )}
+                            </span>
+                          </span>
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-white">{listening ? "Listening to you" : "Start speaking"}</span>
+                          <span className="mt-1 block text-xs text-slate-400">{listening ? "Tap to stop · live transcription on" : "Tap the orb and share your point"}</span>
+                        </span>
                       </button>
 
                       <button
@@ -1263,6 +1451,59 @@ export default function Home() {
             </>
           )}
         </div>
+
+        {!finished && (
+          <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-4 pb-[max(16px,env(safe-area-inset-bottom))] pt-10 pointer-events-none">
+            <div className="pointer-events-auto flex w-full max-w-sm items-center gap-3 rounded-full border border-white/10 bg-[#11131d]/95 p-2.5 shadow-[0_12px_50px_rgba(0,0,0,0.55)] backdrop-blur-xl">
+              <button
+                type="button"
+                onClick={listening ? stopListening : startListening}
+                disabled={autoResponding}
+                aria-label={listening ? "Stop listening" : "Start speaking"}
+                aria-pressed={listening}
+                className="group relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <span className={`absolute inset-0 rounded-full bg-gradient-to-br from-cyan-300 via-violet-500 to-pink-400 blur-md ${listening ? "animate-pulse opacity-100" : "opacity-70 group-hover:opacity-100"}`} />
+                <span className={`absolute inset-0 rounded-full bg-gradient-to-br from-cyan-300 via-violet-500 to-pink-400 p-[2px] ${listening ? "animate-spin" : ""}`}>
+                  <span className="flex h-full w-full items-center justify-center rounded-full bg-[#11131d]">
+                    {listening ? (
+                      <span className="flex h-5 items-center gap-[3px]">
+                        {[0, 1, 2, 3, 4].map((bar) => (
+                          <span key={bar} className="w-[3px] animate-pulse rounded-full bg-cyan-200" style={{ height: `${8 + (bar % 3) * 5}px`, animationDelay: `${bar * 100}ms` }} />
+                        ))}
+                      </span>
+                    ) : (
+                      <svg viewBox="0 0 24 24" className="h-5 w-5 text-white" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                        <rect x="9" y="3" width="6" height="12" rx="3" />
+                        <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0M12 18v3m-4 0h8" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  </span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={listening ? stopListening : startListening}
+                disabled={autoResponding}
+                className="min-w-0 flex-1 text-left disabled:cursor-not-allowed"
+              >
+                <span className="block text-sm font-semibold text-white">
+                  {autoResponding ? (activeSpeaker ? `${activeSpeaker} is speaking` : "AI is preparing...") : listening ? "Listening to you" : "Start speaking"}
+                </span>
+                <span className="mt-0.5 block truncate text-xs text-slate-400">
+                  {autoResponding ? "Your mic will resume automatically" : listening ? "Tap here to stop · your words are transcribed" : "Tap the orb anytime to share your point"}
+                </span>
+              </button>
+              {listening && (
+                <span className="mr-2 flex h-8 items-center gap-1" aria-hidden="true">
+                  {[0, 1, 2, 3].map((bar) => (
+                    <span key={bar} className="w-1 rounded-full bg-violet-300 animate-pulse" style={{ height: `${10 + (bar % 3) * 5}px`, animationDelay: `${bar * 120}ms` }} />
+                  ))}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </main>
     );
   }
@@ -1329,6 +1570,10 @@ export default function Home() {
             <span className="flex items-center gap-2">
               <span className="text-emerald-400">✓</span>
               Live speech transcription
+            </span>
+            <span className="flex items-center gap-2">
+              <span className="text-sky-300">✓</span>
+              Optional camera practice coach
             </span>
             <span className="flex items-center gap-2">
               <span className="text-emerald-400">✓</span>
