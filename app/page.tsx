@@ -67,6 +67,39 @@ type DiscussionTurn = {
 };
 
 
+
+function ParticipantAvatar({ name, speaking = false }: { name: string; speaking?: boolean }) {
+  const styles: Record<string, { bg: string; skin: string; hair: string; shirt: string }> = {
+    Arjun: { bg: "#2b1c14", skin: "#b97850", hair: "#211a18", shirt: "#fb923c" },
+    Meera: { bg: "#251a3e", skin: "#d99a76", hair: "#201721", shirt: "#a78bfa" },
+    Kabir: { bg: "#102c3a", skin: "#b97850", hair: "#181a20", shirt: "#22d3ee" },
+    Riya: { bg: "#3b1828", skin: "#e0a083", hair: "#291923", shirt: "#fb7185" },
+    Dev: { bg: "#3a2a12", skin: "#c98760", hair: "#24201c", shirt: "#fbbf24" },
+  };
+  const c = styles[name] ?? styles.Arjun;
+  const feminine = name === "Meera" || name === "Riya";
+  return (
+    <div className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-2xl ring-1 ring-white/10 ${speaking ? "ring-2 ring-emerald-300 shadow-[0_0_22px_rgba(110,231,183,0.25)]" : ""}`} role="img" aria-label={`${name}${speaking ? ", speaking" : ""}`}>
+      <svg viewBox="0 0 64 64" className={`h-full w-full ${speaking ? "animate-pulse" : ""}`} aria-hidden="true">
+        <rect width="64" height="64" rx="14" fill={c.bg} />
+        <circle cx="50" cy="12" r="12" fill={c.shirt} opacity=".16" />
+        <path d="M7 66c2-15 11-22 25-22s23 7 25 22" fill={c.shirt} />
+        <path d="M24 41h16l-1 9-7 6-7-6z" fill={c.skin} />
+        {feminine && <path d="M15 31c-2-16 5-24 17-24s20 9 17 25l-3 14-8-5H25l-7 6z" fill={c.hair} />}
+        {!feminine && <path d="M17 25c0-13 7-19 16-19s16 7 15 20l-5-6c-7 1-15-2-20-6z" fill={c.hair} />}
+        <ellipse cx="32" cy="29" rx="14" ry="17" fill={c.skin} />
+        <path d={feminine ? "M18 24c1-13 8-18 15-18 10 0 15 8 14 18-6-2-10-7-12-11-4 6-10 9-17 11z" : "M18 22c2-12 8-16 15-16 8 0 13 5 14 15-7-1-12-4-16-8-3 4-7 7-13 9z"} fill={c.hair} />
+        <path d="M23 27q3-2 6 0M35 27q3-2 6 0" stroke="#4b2b24" strokeWidth="1.8" fill="none" strokeLinecap="round" />
+        <ellipse cx="27" cy="31" rx="1.8" ry="2.3" fill="#211a20" />
+        <ellipse cx="38" cy="31" rx="1.8" ry="2.3" fill="#211a20" />
+        <path d={speaking ? "M27 39q5 7 10 0q-5-3-10 0" : "M27 39q5 4 10 0"} fill={speaking ? "#7f3036" : "none"} stroke="#7f3036" strokeWidth="1.8" strokeLinecap="round" />
+        <path d="M21 49l11 9 11-9 7 5 5 12H9l5-12z" fill={c.shirt} />
+        <circle cx="51" cy="49" r="2" fill="#fff" opacity=".65" />
+      </svg>
+    </div>
+  );
+}
+
 function AnanyaAvatar({
   speaking = false,
   size = "md",
@@ -1094,9 +1127,10 @@ export default function Home() {
                         {member.name === moderator.name ? (
                           <AnanyaAvatar speaking={activeSpeaker === "Ananya" || moderatorSpeaking} />
                         ) : (
-                          <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${member.color} text-lg font-semibold text-slate-950`}>
-                            {member.initials}
-                          </div>
+                          <ParticipantAvatar
+                            name={member.name}
+                            speaking={activeSpeaker === member.name}
+                          />
                         )}
 
                         <p className="mt-4 text-sm font-semibold">
