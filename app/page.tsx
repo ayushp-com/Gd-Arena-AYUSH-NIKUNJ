@@ -731,6 +731,12 @@ export default function Home() {
   const minutes = String(Math.floor(remaining / 60)).padStart(2, "0");
   const seconds = String(remaining % 60).padStart(2, "0");
   const participants = [...panelMembers.slice(0, panel), moderator];
+  const transcriptWords = transcript.trim() ? transcript.trim().split(/\s+/).length : 0;
+  const elapsedSeconds = Math.max(0, duration * 60 - remaining);
+  const elapsedLabel = `${Math.floor(elapsedSeconds / 60)}m ${String(elapsedSeconds % 60).padStart(2, "0")}s`;
+  const userSentences = transcript.split(/[.!?]+/).filter((sentence) => sentence.trim().length > 0).length;
+  const averageWordsPerSentence = userSentences ? Math.round(transcriptWords / userSentences) : 0;
+  const fillerCount = (transcript.match(/\b(um|uh|erm|actually|basically|like)\b/gi) ?? []).length;
 
   if (room) {
     return (
@@ -775,17 +781,62 @@ export default function Home() {
               </h1>
 
               <p className="mt-4 text-sm leading-7 text-slate-400">
-                Your session has ended. Your transcript and AI discussion are
-                available below.
+                Your session report is ready. Review your speaking stats and discussion below.
               </p>
 
-              <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4 text-left">
-                <p className="text-xs uppercase tracking-wider text-slate-500">
-                  Your transcript
-                </p>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-300">
-                  {transcript || "No speech was transcribed."}
-                </p>
+              <div className="mt-7 text-left">
+                <p className="text-xs uppercase tracking-[0.2em] text-violet-300">Session report</p>
+                <h2 className="mt-2 text-2xl font-semibold">Your performance snapshot</h2>
+                <p className="mt-2 text-sm text-slate-400">{topic}</p>
+
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  {[
+                    ["Time practiced", elapsedLabel],
+                    ["Your words", String(transcriptWords)],
+                    ["Your sentences", String(userSentences)],
+                    ["AI contributions", String(discussionTurns.length)],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                      <p className="text-xs text-slate-500">{label}</p>
+                      <p className="mt-2 text-xl font-semibold text-white">{value}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <h3 className="font-medium">Practice feedback</h3>
+                  {transcriptWords === 0 ? (
+                    <p className="mt-2 text-sm leading-6 text-slate-400">No speech was transcribed, so there isn’t enough data to assess your speaking. Try speaking clearly and allow microphone access next time.</p>
+                  ) : (
+                    <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-300">
+                      <li>• You spoke {transcriptWords} words across {userSentences} detected sentence(s).</li>
+                      <li>• Average sentence length: {averageWordsPerSentence} words. Aim for clear, concise points supported by examples.</li>
+                      <li>• Filler words detected (um, uh, erm, actually, basically, like): {fillerCount}. This is a rough transcript-based estimate.</li>
+                      <li>• Next time, structure each point as claim → reason → example, and briefly respond to another participant’s idea.</li>
+                    </ul>
+                  )}
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs uppercase tracking-wider text-slate-500">Your transcript</p>
+                  <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-300">{transcript || "No speech was transcribed."}</p>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs uppercase tracking-wider text-slate-500">AI discussion highlights</p>
+                  {discussionTurns.length ? (
+                    <div className="mt-3 space-y-4">
+                      {discussionTurns.map((turn, index) => (
+                        <div key={`${turn.speaker}-${index}`} className="border-l-2 border-violet-400/50 pl-3">
+                          <p className="text-xs font-semibold text-violet-300">{turn.speaker} · {turn.role}</p>
+                          <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-300">{turn.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-400">No AI responses were recorded in this session.</p>
+                  )}
+                </div>
               </div>
 
               <button
