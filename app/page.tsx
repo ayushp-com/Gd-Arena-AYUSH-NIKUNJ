@@ -937,85 +937,111 @@ export default function Home() {
 
         <div className="mx-auto max-w-7xl px-5 py-8 sm:px-8 sm:py-12">
           {finished ? (
-            <section className="mx-auto max-w-xl rounded-3xl border border-white/10 bg-white/[0.035] p-8 text-center sm:p-12">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-violet-500/15 text-3xl text-violet-300">
-                ✓
-              </div>
+            <section className="mx-auto max-w-6xl">
+              <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[#10131f] p-6 shadow-2xl shadow-violet-950/20 sm:p-10 print:border-slate-200 print:bg-white print:text-slate-900">
+                <div className="pointer-events-none absolute -right-24 -top-28 h-72 w-72 rounded-full bg-violet-500/15 blur-3xl print:hidden" />
+                <div className="pointer-events-none absolute -left-24 top-40 h-56 w-56 rounded-full bg-cyan-400/10 blur-3xl print:hidden" />
 
-              <p className="mt-6 text-xs uppercase tracking-[0.22em] text-violet-300">
-                Session closed
-              </p>
+                <div className="relative flex flex-col justify-between gap-6 border-b border-white/10 pb-8 sm:flex-row sm:items-start print:border-slate-200">
+                  <div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-3 py-1.5 text-xs font-medium text-emerald-200 print:border-emerald-200 print:text-emerald-800">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                      SESSION COMPLETE · REPORT GENERATED
+                    </div>
+                    <h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-5xl">Your next level starts here.</h1>
+                    <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 print:text-slate-600">A personalised debrief of your group discussion, with practical next steps and learning resources selected around your topic.</p>
+                    <div className="mt-5 flex flex-wrap gap-2">
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 print:border-slate-200 print:text-slate-700">{format}</span>
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 print:border-slate-200 print:text-slate-700">{language}</span>
+                      <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 print:border-slate-200 print:text-slate-700">{panel} AI participants</span>
+                    </div>
+                    <p className="mt-4 text-sm text-slate-400 print:text-slate-600">Discussion topic: <span className="font-medium text-white print:text-slate-900">{topic}</span></p>
+                  </div>
+                  <div className="flex shrink-0 flex-wrap gap-2 print:hidden">
+                    <button type="button" onClick={() => window.print()} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-medium transition hover:bg-white/10">↓ Save report as PDF</button>
+                    <button type="button" onClick={leaveRoom} className="rounded-xl bg-violet-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-violet-400">New practice ↗</button>
+                  </div>
+                </div>
 
-              <h1 className="mt-3 text-3xl font-semibold">
-                Good practice starts here.
-              </h1>
-
-              <p className="mt-4 text-sm leading-7 text-slate-400">
-                Your session report is ready. Review your speaking stats and discussion below.
-              </p>
-
-              <div className="mt-7 text-left">
-                <p className="text-xs uppercase tracking-[0.2em] text-violet-300">Session report</p>
-                <h2 className="mt-2 text-2xl font-semibold">Your performance snapshot</h2>
-                <p className="mt-2 text-sm text-slate-400">{topic}</p>
-
-                <div className="mt-5 grid grid-cols-2 gap-3">
+                <div className="relative mt-7 grid grid-cols-2 gap-3 lg:grid-cols-4">
                   {[
-                    ["Time practiced", elapsedLabel],
-                    ["Your words", String(transcriptWords)],
-                    ["Your sentences", String(userSentences)],
-                    ["AI contributions", String(discussionTurns.length)],
-                    ...(movementLevel > 0 ? [["Camera movement", movementLevel < 18 ? "Low" : movementLevel < 45 ? "Moderate" : "High"]] : []),
-                  ].map(([label, value]) => (
-                    <div key={label} className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                      <p className="text-xs text-slate-500">{label}</p>
-                      <p className="mt-2 text-xl font-semibold text-white">{value}</p>
+                    { label: "Practice time", value: elapsedLabel, detail: "Time spent in this session", icon: "◷", tone: "text-violet-200" },
+                    { label: "Words spoken", value: String(transcriptWords), detail: "Your transcribed words", icon: "↗", tone: "text-cyan-200" },
+                    { label: "Sentences", value: String(userSentences), detail: "Detected from punctuation", icon: "≋", tone: "text-emerald-200" },
+                    { label: "Filler words", value: String(fillerCount), detail: "Rough transcript estimate", icon: "◎", tone: "text-amber-200" },
+                  ].map((stat) => (
+                    <div key={stat.label} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4 sm:p-5 print:border-slate-200 print:bg-slate-50">
+                      <div className="flex items-center justify-between"><span className="text-xs text-slate-400 print:text-slate-600">{stat.label}</span><span className={`text-lg ${stat.tone}`}>{stat.icon}</span></div>
+                      <p className="mt-4 text-2xl font-semibold tracking-tight sm:text-3xl print:text-slate-900">{stat.value}</p>
+                      <p className="mt-2 text-[11px] leading-5 text-slate-500 print:text-slate-600">{stat.detail}</p>
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <h3 className="font-medium">Practice feedback</h3>
-                  {transcriptWords === 0 ? (
-                    <p className="mt-2 text-sm leading-6 text-slate-400">No speech was transcribed, so there isn’t enough data to assess your speaking. Try speaking clearly and allow microphone access next time.</p>
-                  ) : (
-                    <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-300">
-                      <li>• You spoke {transcriptWords} words across {userSentences} detected sentence(s).</li>
-                      <li>• Average sentence length: {averageWordsPerSentence} words. Aim for clear, concise points supported by examples.</li>
-                      <li>• Filler words detected (um, uh, erm, actually, basically, like): {fillerCount}. This is a rough transcript-based estimate.</li>
-                      <li>• Next time, structure each point as claim → reason → example, and briefly respond to another participant’s idea.</li>
-                    </ul>
-                  )}
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <p className="text-xs uppercase tracking-wider text-slate-500">Your transcript</p>
-                  <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-300">{transcript || "No speech was transcribed."}</p>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <p className="text-xs uppercase tracking-wider text-slate-500">AI discussion highlights</p>
-                  {discussionTurns.length ? (
-                    <div className="mt-3 space-y-4">
-                      {discussionTurns.map((turn, index) => (
-                        <div key={`${turn.speaker}-${index}`} className="border-l-2 border-violet-400/50 pl-3">
-                          <p className="text-xs font-semibold text-violet-300">{turn.speaker} · {turn.role}</p>
-                          <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-300">{turn.text}</p>
-                        </div>
-                      ))}
+                <div className="relative mt-7 grid gap-5 lg:grid-cols-[1.05fr_0.95fr]">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-5 sm:p-6 print:border-slate-200 print:bg-white">
+                    <div className="flex items-start justify-between gap-4">
+                      <div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-300 print:text-violet-700">Your debrief</p><h2 className="mt-2 text-xl font-semibold">What your session tells us</h2></div>
+                      <span className="rounded-xl bg-violet-400/10 px-3 py-2 text-lg text-violet-200 print:hidden">✳</span>
                     </div>
-                  ) : (
-                    <p className="mt-3 text-sm text-slate-400">No AI responses were recorded in this session.</p>
-                  )}
+                    {transcriptWords === 0 ? (
+                      <div className="mt-5 rounded-xl border border-amber-300/20 bg-amber-300/[0.06] p-4 text-sm leading-6 text-slate-300 print:text-slate-700">There is not enough transcribed speech to create a meaningful speaking assessment. In your next session, check microphone permission and speak for at least 30–60 seconds so the report can use your words.</div>
+                    ) : (
+                      <>
+                        <p className="mt-4 text-sm leading-6 text-slate-300 print:text-slate-700">You contributed <strong className="text-white print:text-slate-900">{transcriptWords} words</strong> across <strong className="text-white print:text-slate-900">{userSentences} detected sentences</strong>. Your average sentence length was <strong className="text-white print:text-slate-900">{averageWordsPerSentence} words</strong>.</p>
+                        <div className="mt-5 space-y-4">
+                          <div>
+                            <div className="flex items-center justify-between gap-3 text-xs"><span className="text-slate-300 print:text-slate-700">Average sentence length</span><span className="font-semibold text-cyan-200 print:text-cyan-800">{averageWordsPerSentence} words</span></div>
+                            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10 print:bg-slate-200"><div className="h-full rounded-full bg-cyan-300" style={{ width: `${Math.min(100, averageWordsPerSentence / 30 * 100)}%` }} /></div>
+                            <p className="mt-1.5 text-[11px] leading-5 text-slate-500 print:text-slate-600">A rough visual guide, not a score. Prioritise complete, easy-to-follow thoughts over a target number.</p>
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between gap-3 text-xs"><span className="text-slate-300 print:text-slate-700">Filler words detected</span><span className="font-semibold text-amber-200 print:text-amber-800">{fillerCount}</span></div>
+                            <div className="mt-2 h-2 overflow-hidden rounded-full bg-white/10 print:bg-slate-200"><div className="h-full rounded-full bg-amber-300" style={{ width: `${Math.min(100, transcriptWords ? fillerCount / transcriptWords * 1000 : 0)}%` }} /></div>
+                            <p className="mt-1.5 text-[11px] leading-5 text-slate-500 print:text-slate-600">Estimated from recognised text; transcription can miss or misclassify words.</p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    {movementLevel > 0 && <div className="mt-5 rounded-xl border border-sky-300/15 bg-sky-300/[0.05] p-3"><p className="text-xs font-semibold text-sky-200 print:text-sky-800">Camera movement snapshot</p><p className="mt-1 text-sm text-slate-300 print:text-slate-700">{movementLevel < 18 ? "Low" : movementLevel < 45 ? "Moderate" : "High"} visible movement estimate. This measures frame-to-frame movement only; it is not a confidence, emotion, or body-language score.</p></div>}
+                  </div>
+
+                  <div className="rounded-2xl border border-emerald-300/15 bg-emerald-300/[0.035] p-5 sm:p-6 print:border-slate-200 print:bg-white">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300 print:text-emerald-800">Your action plan</p>
+                    <h2 className="mt-2 text-xl font-semibold">Three things to practise next</h2>
+                    <div className="mt-5 space-y-4">
+                      <div className="flex gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-300/10 text-sm font-semibold text-emerald-200 print:text-emerald-800">01</span><div><p className="text-sm font-medium">Use a clear argument structure</p><p className="mt-1 text-xs leading-5 text-slate-400 print:text-slate-600">State your point → explain why → give a real example → connect it to the topic.</p></div></div>
+                      <div className="flex gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-300/10 text-sm font-semibold text-emerald-200 print:text-emerald-800">02</span><div><p className="text-sm font-medium">{fillerCount > 2 ? "Replace fillers with a pause" : "Practise concise, deliberate delivery"}</p><p className="mt-1 text-xs leading-5 text-slate-400 print:text-slate-600">{fillerCount > 2 ? `The transcript flagged ${fillerCount} possible filler words. Pause for a breath instead of filling silence; verify this estimate against what you actually said.` : "Record a 60-second answer, pause between ideas, and remove repeated points when reviewing it."}</p></div></div>
+                      <div className="flex gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-emerald-300/10 text-sm font-semibold text-emerald-200 print:text-emerald-800">03</span><div><p className="text-sm font-medium">Build on someone else's point</p><p className="mt-1 text-xs leading-5 text-slate-400 print:text-slate-600">Acknowledge one argument, add evidence or a counterpoint, then invite the group forward respectfully.</p></div></div>
+                    </div>
+                    <div className="mt-5 rounded-xl border border-white/10 bg-black/15 p-4 print:border-slate-200"><p className="text-xs font-semibold text-slate-200 print:text-slate-800">Next-session challenge</p><p className="mt-1 text-sm leading-6 text-slate-400 print:text-slate-600">Make 3 points in 60 seconds. Each point must include one reason and one example. Aim for clarity, not speed.</p></div>
+                  </div>
+                </div>
+
+                <div className="relative mt-7">
+                  <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end"><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-300 print:text-violet-700">Curated for your topic</p><h2 className="mt-2 text-2xl font-semibold">Your learning queue</h2><p className="mt-2 text-sm text-slate-400 print:text-slate-600">Topic: {topic}. These links open focused searches or established learning resources; they are not claims that a particular video was watched or verified.</p></div><span className="text-xs text-slate-500">Videos · Reading · Practice</span></div>
+                  <div className="mt-5 grid gap-3 md:grid-cols-3">
+                    <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent(`${topic} group discussion arguments examples`)}`} target="_blank" rel="noreferrer" className="group rounded-2xl border border-rose-300/15 bg-rose-300/[0.04] p-5 transition hover:border-rose-300/40 hover:bg-rose-300/[0.07] print:border-slate-200 print:bg-white"><div className="flex items-center justify-between"><span className="rounded-lg bg-rose-300/10 px-2.5 py-1.5 text-xs font-semibold text-rose-200 print:text-rose-800">▶ VIDEO</span><span className="text-slate-500 transition group-hover:translate-x-1">↗</span></div><h3 className="mt-4 font-semibold">Understand the topic</h3><p className="mt-2 text-xs leading-5 text-slate-400 print:text-slate-600">Find explainers, arguments, examples and opposing viewpoints about this exact GD topic.</p><span className="mt-4 inline-block text-xs font-medium text-rose-200 print:text-rose-800">Search YouTube →</span></a>
+                    <a href={`https://www.youtube.com/results?search_query=${encodeURIComponent("group discussion communication skills claim reason example public speaking")}`} target="_blank" rel="noreferrer" className="group rounded-2xl border border-violet-300/15 bg-violet-300/[0.04] p-5 transition hover:border-violet-300/40 hover:bg-violet-300/[0.07] print:border-slate-200 print:bg-white"><div className="flex items-center justify-between"><span className="rounded-lg bg-violet-300/10 px-2.5 py-1.5 text-xs font-semibold text-violet-200 print:text-violet-800">▶ VIDEO</span><span className="text-slate-500 transition group-hover:translate-x-1">↗</span></div><h3 className="mt-4 font-semibold">Speak with structure</h3><p className="mt-2 text-xs leading-5 text-slate-400 print:text-slate-600">Practise concise points, examples, active listening and respectful rebuttals.</p><span className="mt-4 inline-block text-xs font-medium text-violet-200 print:text-violet-800">Find speaking lessons →</span></a>
+                    <a href="https://www.toastmasters.org/resources/public-speaking-tips" target="_blank" rel="noreferrer" className="group rounded-2xl border border-cyan-300/15 bg-cyan-300/[0.04] p-5 transition hover:border-cyan-300/40 hover:bg-cyan-300/[0.07] print:border-slate-200 print:bg-white"><div className="flex items-center justify-between"><span className="rounded-lg bg-cyan-300/10 px-2.5 py-1.5 text-xs font-semibold text-cyan-200 print:text-cyan-800">READ · GUIDE</span><span className="text-slate-500 transition group-hover:translate-x-1">↗</span></div><h3 className="mt-4 font-semibold">Public speaking toolkit</h3><p className="mt-2 text-xs leading-5 text-slate-400 print:text-slate-600">Practical tips for preparation, delivery and becoming a more effective speaker.</p><span className="mt-4 inline-block text-xs font-medium text-cyan-200 print:text-cyan-800">Read the guide →</span></a>
+                  </div>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <a href="https://owl.purdue.edu/owl/general_writing/academic_writing/establishing_arguments/index.html" target="_blank" rel="noreferrer" className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.025] p-4 transition hover:bg-white/[0.05] print:border-slate-200"><span className="text-xl text-emerald-200 print:text-emerald-800">↗</span><div><p className="text-sm font-medium">Build stronger arguments</p><p className="mt-1 text-xs leading-5 text-slate-400 print:text-slate-600">Purdue OWL · How to establish and support an argument.</p></div></a>
+                    <a href={`https://www.google.com/search?q=${encodeURIComponent(`${topic} credible sources evidence latest data`)}`} target="_blank" rel="noreferrer" className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.025] p-4 transition hover:bg-white/[0.05] print:border-slate-200"><span className="text-xl text-amber-200 print:text-amber-800">⌕</span><div><p className="text-sm font-medium">Find evidence for your topic</p><p className="mt-1 text-xs leading-5 text-slate-400 print:text-slate-600">Search for credible sources, current data and examples you can use in your next GD.</p></div></a>
+                  </div>
+                </div>
+
+                <div className="relative mt-7 grid gap-5 lg:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-5 print:border-slate-200 print:bg-white"><div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Your transcript</h2><span className="text-xs text-slate-500">{transcriptWords} words</span></div><p className="mt-3 max-h-72 overflow-y-auto whitespace-pre-wrap text-sm leading-7 text-slate-300 print:max-h-none print:overflow-visible print:text-slate-700">{transcript || "No speech was transcribed."}</p></div>
+                  <div className="rounded-2xl border border-white/10 bg-black/20 p-5 print:border-slate-200 print:bg-white"><div className="flex items-center justify-between gap-3"><h2 className="font-semibold">AI discussion highlights</h2><span className="text-xs text-slate-500">{discussionTurns.length} contributions</span></div>{discussionTurns.length ? <div className="mt-4 max-h-72 space-y-4 overflow-y-auto print:max-h-none print:overflow-visible">{discussionTurns.map((turn, index) => <div key={`${turn.speaker}-${index}`} className="border-l-2 border-violet-400/50 pl-3"><p className="text-xs font-semibold text-violet-300 print:text-violet-700">{turn.speaker} · {turn.role}</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-300 print:text-slate-700">{turn.text}</p></div>)}</div> : <p className="mt-3 text-sm text-slate-400">No AI responses were recorded in this session.</p>}</div>
+                </div>
+
+                <div className="relative mt-7 flex flex-col justify-between gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center print:border-slate-200">
+                  <p className="text-xs leading-5 text-slate-500 print:text-slate-600">GD Arena coaching uses transcript-based signals, not a definitive measure of confidence or communication ability. Use the feedback as a practice guide.</p>
+                  <button type="button" onClick={leaveRoom} className="shrink-0 rounded-xl bg-violet-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-400 print:hidden">Back to setup →</button>
                 </div>
               </div>
-
-              <button
-                onClick={leaveRoom}
-                className="mt-8 w-full rounded-xl bg-violet-500 px-5 py-4 text-sm font-semibold transition hover:bg-violet-400"
-              >
-                Back to setup →
-              </button>
+              <style jsx global>{`@media print { body { background: white !important; } main { background: white !important; color: #0f172a !important; } @page { size: auto; margin: 12mm; } }`}</style>
             </section>
           ) : (
             <>
