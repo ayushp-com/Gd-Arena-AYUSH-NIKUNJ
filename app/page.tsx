@@ -103,12 +103,8 @@ export default function Home() {
   const roomRunRef = useRef(0);
   const speechRunRef = useRef(0);
 
-  // ElevenLabs audio playback refs.
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUrlRef = useRef<string | null>(null);
-  const audioResolveRef = useRef<(() => void) | null>(null);
-  // Serialize ElevenLabs requests in this browser tab to avoid concurrent-limit errors.
-  const ttsRequestQueueRef = useRef<Promise<void>>(Promise.resolve());
+  // Browser speech synthesis replaces the hosted TTS service.
+  const speechResolveRef = useRef<(() => void) | null>(null);
 
   const stopListening = useCallback(() => {
     const recognition = recognitionRef.current;
@@ -129,26 +125,13 @@ export default function Home() {
   const stopAllSpeech = useCallback(() => {
     speechRunRef.current += 1;
 
-    const audio = audioRef.current;
-
-    if (audio) {
-      audio.onended = null;
-      audio.onerror = null;
-      audio.pause();
-      audio.removeAttribute("src");
-      audio.load();
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
     }
 
-    audioRef.current = null;
-
-    if (audioUrlRef.current) {
-      URL.revokeObjectURL(audioUrlRef.current);
-      audioUrlRef.current = null;
-    }
-
-    const resolvePendingAudio = audioResolveRef.current;
-    audioResolveRef.current = null;
-    resolvePendingAudio?.();
+    const resolvePendingSpeech = speechResolveRef.current;
+    speechResolveRef.current = null;
+    resolvePendingSpeech?.();
 
     setModeratorSpeaking(false);
     setActiveSpeaker("");
@@ -259,153 +242,108 @@ export default function Home() {
     }
   }, [room, finished, language]);
 
-  // Generate and play speech using the server-side ElevenLabs endpoint.
+  // Play speech with the browser's built-in speech synthesis (free, no server/API).
   const speakText = useCallback(
     async (text: string, speaker: string, runId: number): Promise<void> => {
-      if (typeof window === "undefined") return;
+      if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+        throw new Error("Speech playback is not supported in this browser. Try Chrome or Edge.");
+      }
       if (speechRunRef.current !== runId) return;
 
-      let objectUrl: string | null = null;
+      const cleanText = text.trim();
+      if (!cleanText) return;
 
-      try {
-        // Wait for the previous TTS generation request before calling ElevenLabs.
-        let releaseRequest!: () => void;
-        const previousRequest = ttsRequestQueueRef.current;
+      window.speechSynthesis.cancel();
 
-        ttsRequestQueueRef.current = new Promise<void>((resolve) => {
-          releaseRequest = resolve;
-        });
-
-        let audioBlob: Blob;
-
-        await previousRequest;
-
-        try {
-          // If this speech sequence was stopped while waiting, skip the request.
-          if (speechRunRef.current !== runId) return;
-
-          let response: Response | null = null;
-          let data: { error?: string } | null = null;
-
-          // Retry rate-limit errors twice, waiting before each retry.
-          for (let attempt = 0; attempt < 3; attempt++) {
-            response = await fetch("/api/tts", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ text, speaker, language }),
-            });
-
-            if (response.ok) break;
-
-            data = await response.json().catch(() => null);
-
-            if (response.status !== 429 || attempt === 2) {
-              throw new Error(
-                data?.error ||
-                  `ElevenLabs voice generation failed (${response.status}).`
-              );
-            }
-
-            await new Promise((resolve) =>
-              window.setTimeout(resolve, 1200 * (attempt + 1))
-            );
-
-            if (speechRunRef.current !== runId) return;
-          }
-
-          if (!response?.ok) {
-            throw new Error(
-              data?.error || "ElevenLabs is busy. Please try again shortly."
-            );
-          }
-
-          audioBlob = await response.blob();
-        } finally {
-          // Always release the queue, including when a request fails or is skipped.
-          releaseRequest();
-        }
-
-        // Do not play audio if this turn was cancelled during generation.
-        if (speechRunRef.current !== runId) return;
-
-        objectUrl = URL.createObjectURL(audioBlob);
-        audioUrlRef.current = objectUrl;
-
-        const audio = new Audio(objectUrl);
-        audio.preload = "auto";
-        audioRef.current = audio;
-
-        setActiveSpeaker(speaker);
-        setModeratorSpeaking(speaker === "Ananya");
-
-        await new Promise<void>((resolve, reject) => {
-          let settled = false;
-
-          const finish = () => {
-            if (settled) return;
-            settled = true;
-
-            audio.onended = null;
-            audio.onerror = null;
-
-            if (audioRef.current === audio) {
-              audioRef.current = null;
-            }
-
-            if (audioUrlRef.current === objectUrl) {
-              URL.revokeObjectURL(objectUrl!);
-              audioUrlRef.current = null;
-            }
-
-            if (audioResolveRef.current === finish) {
-              audioResolveRef.current = null;
-            }
-
-            if (speechRunRef.current === runId) {
-              setModeratorSpeaking(false);
-              setActiveSpeaker("");
-            }
-
+      // Wait briefly for voices to be populated on browsers that load them asynchronously.
+      let voices = window.speechSynthesis.getVoices();
+      if (voices.length === 0) {
+        await new Promise<void>((resolve) => {
+          const timeout = window.setTimeout(resolve, 250);
+          window.speechSynthesis.onvoiceschanged = () => {
+            window.clearTimeout(timeout);
+            window.speechSynthesis.onvoiceschanged = null;
             resolve();
           };
+        });
+        voices = window.speechSynthesis.getVoices();
+      }
 
-          audioResolveRef.current = finish;
-          audio.onended = finish;
+      if (speechRunRef.current !== runId) return;
 
-          audio.onerror = () => {
-            if (settled) return;
-            finish();
-            reject(new Error("Audio playback failed. Please try again."));
-          };
+      const utterance = new SpeechSynthesisUtterance(cleanText);
+      const normalizedLanguage = language.toLowerCase();
+      const lang = normalizedLanguage.includes("hindi") || normalizedLanguage.includes("hinglish")
+        ? "hi-IN"
+        : "en-IN";
+      utterance.lang = lang;
+      utterance.volume = 1;
 
-          if (speechRunRef.current !== runId) {
+      const voiceSettings: Record<string, { gender: "female" | "male"; pitch: number; rate: number }> = {
+        Ananya: { gender: "female", pitch: 1.05, rate: 0.95 },
+        Arjun: { gender: "male", pitch: 0.85, rate: 1.0 },
+        Meera: { gender: "female", pitch: 1.0, rate: 0.95 },
+        Kabir: { gender: "male", pitch: 0.9, rate: 0.9 },
+        Riya: { gender: "female", pitch: 1.1, rate: 1.0 },
+        Dev: { gender: "male", pitch: 0.95, rate: 0.95 },
+      };
+      const settings = voiceSettings[speaker] ?? { gender: "female" as const, pitch: 1, rate: 0.95 };
+      utterance.pitch = settings.pitch;
+      utterance.rate = settings.rate;
+
+      const matchingLanguageVoices = voices.filter((voice) =>
+        voice.lang.toLowerCase().startsWith(lang.slice(0, 2))
+      );
+      const genderHints = settings.gender === "female"
+        ? ["female", "samantha", "ava", "karen", "moira", "lekha", "zira"]
+        : ["male", "daniel", "alex", "david", "oliver", "rishi", "mark"];
+      const preferredVoice = matchingLanguageVoices.find((voice) =>
+        genderHints.some((hint) => voice.name.toLowerCase().includes(hint))
+      );
+      const selectedVoice = preferredVoice
+        ?? matchingLanguageVoices.find((voice) => voice.default)
+        ?? voices.find((voice) => voice.lang.toLowerCase().startsWith("en-"));
+      if (selectedVoice) utterance.voice = selectedVoice;
+
+      setActiveSpeaker(speaker);
+      setModeratorSpeaking(speaker === "Ananya");
+
+      await new Promise<void>((resolve, reject) => {
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          utterance.onend = null;
+          utterance.onerror = null;
+          if (speechResolveRef.current === finish) speechResolveRef.current = null;
+          if (speechRunRef.current === runId) {
+            setModeratorSpeaking(false);
+            setActiveSpeaker("");
+          }
+          resolve();
+        };
+        speechResolveRef.current = finish;
+        utterance.onend = finish;
+        utterance.onerror = (event) => {
+          if (event.error === "canceled" || event.error === "interrupted") {
             finish();
             return;
           }
-
-          audio.play().catch((error: unknown) => {
-            if (settled) return;
-
-            finish();
-
-            reject(
-              new Error(
-                error instanceof Error
-                  ? `${error.message} Try clicking "Play opening again" to enable audio.`
-                  : "Browser blocked audio playback. Please try again."
-              )
-            );
-          });
-        });
-      } catch (error) {
-        if (speechRunRef.current === runId) {
-          throw error;
+          if (settled) return;
+          settled = true;
+          if (speechResolveRef.current === finish) speechResolveRef.current = null;
+          if (speechRunRef.current === runId) {
+            setModeratorSpeaking(false);
+            setActiveSpeaker("");
+          }
+          reject(new Error(`Speech playback failed: ${event.error}. Try Chrome or Edge.`));
+        };
+        if (speechRunRef.current !== runId) {
+          finish();
+          return;
         }
-      } finally {
-        if (objectUrl && audioUrlRef.current !== objectUrl) {
-          URL.revokeObjectURL(objectUrl);
-        }
-      }
+        window.speechSynthesis.speak(utterance);
+      });
     },
     [language]
   );
@@ -470,20 +408,11 @@ export default function Home() {
         recognitionRef.current = null;
       }
 
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.removeAttribute("src");
-        audioRef.current.load();
-        audioRef.current = null;
+      if ("speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
       }
-
-      if (audioUrlRef.current) {
-        URL.revokeObjectURL(audioUrlRef.current);
-        audioUrlRef.current = null;
-      }
-
-      audioResolveRef.current?.();
-      audioResolveRef.current = null;
+      speechResolveRef.current?.();
+      speechResolveRef.current = null;
     };
   }, []);
 
@@ -1584,7 +1513,7 @@ export default function Home() {
                   Automatic discussion.
                 </span>{" "}
                 The moderator and AI participants respond after you finish
-                speaking. Natural AI voices powered by ElevenLabs.
+                speaking. Free browser voices with adjustable speaker styles.
               </p>
             </div>
 
