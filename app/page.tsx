@@ -8,6 +8,11 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { createClient, type User } from "@supabase/supabase-js";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
 const topics = [
   { name: "AI & Technology", icon: "✳", topic: "Will AI create more jobs than it destroys?" },
@@ -170,6 +175,14 @@ export default function Home() {
   const [duration, setDuration] = useState(5);
   const [language, setLanguage] = useState("English");
   const [format, setFormat] = useState("Placement GD");
+  const [authUser, setAuthUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authMessage, setAuthMessage] = useState("");
+  const [accountView, setAccountView] = useState<"history" | "leaderboard" | null>(null);
+  const [sessionHistory, setSessionHistory] = useState<Array<{ id: string; topic: string; format: string; language: string; duration_seconds: number; words_spoken: number; filler_count: number; created_at: string }>>([]);
+  const [leaderboard, setLeaderboard] = useState<Array<{ user_id: string; display_name: string; sessions_completed: number; total_words: number }>>([]);
+  const [dataLoading, setDataLoading] = useState(false);
+  const savedSessionRef = useRef("");
 
   const [room, setRoom] = useState(false);
   const [remaining, setRemaining] = useState(300);
@@ -207,6 +220,93 @@ export default function Home() {
 
   // Browser speech synthesis replaces the hosted TTS service.
   const speechResolveRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (!supabase) {
+      setAuthMessage("Add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to .env.local to enable account features.");
+      return;
+    }
+    let active = true;
+    supabase.auth.getSession().then(({ data }) => { if (active) setAuthUser(data.session?.user ?? null); });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (active) setAuthUser(session?.user ?? null);
+    });
+    return () => { active = false; listener.subscription.unsubscribe(); };
+  }, []);
+
+  const signInWithGoogle = useCallback(async () => {
+    if (!supabase) {
+      setAuthMessage("Supabase is not configured yet. Add the two public Supabase environment variables and restart the dev server.");
+      return;
+    }
+    setAuthLoading(true);
+    setAuthMessage("");
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: typeof window !== "undefined" ? window.location.origin : undefined },
+    });
+    if (error) setAuthMessage(error.message);
+    setAuthLoading(false);
+  }, []);
+
+  const signOut = useCallback(async () => {
+    if (!supabase) return;
+    const { error } = await supabase.auth.signOut();
+    if (error) setAuthMessage(error.message);
+    else { setAuthUser(null); setAccountView(null); setSessionHistory([]); }
+  }, []);
+
+  useEffect(() => {
+    if (!supabase || !authUser || !finished || !room) return;
+    const sessionKey = `${authUser.id}:${roomRunRef.current}`;
+    if (savedSessionRef.current === sessionKey) return;
+    savedSessionRef.current = sessionKey;
+    const save = async () => {
+      const { error } = await supabase.from("session_history").insert({
+        user_id: authUser.id,
+        topic,
+        format,
+        language,
+        duration_seconds: Math.max(0, duration * 60 - remaining),
+        words_spoken: transcript.trim() ? transcript.trim().split(/\s+/).length : 0,
+        sentences_count: transcript.split(/[.!?]+/).filter((sentence) => sentence.trim().length > 0).length,
+        filler_count: (transcript.match(/\b(um|uh|erm|actually|basically|like)\b/gi) ?? []).length,
+        transcript,
+        discussion_turns: discussionTurns,
+      });
+      if (error) {
+        savedSessionRef.current = "";
+        setAuthMessage(`Could not save session history: ${error.message}`);
+      }
+    };
+    void save();
+  }, [authUser, finished, room, topic, format, language, duration, remaining, transcript, discussionTurns]);
+
+  useEffect(() => {
+    if (!supabase || !authUser || !accountView) return;
+    let active = true;
+    setDataLoading(true);
+    const load = async () => {
+      if (accountView === "history") {
+        const { data, error } = await supabase.from("session_history")
+          .select("id,topic,format,language,duration_seconds,words_spoken,filler_count,created_at")
+          .order("created_at", { ascending: false }).limit(50);
+        if (!active) return;
+        if (error) setAuthMessage(error.message);
+        else setSessionHistory(data ?? []);
+      } else {
+        const { data, error } = await supabase.from("leaderboard_stats")
+          .select("user_id,display_name,sessions_completed,total_words")
+          .order("sessions_completed", { ascending: false }).order("total_words", { ascending: false }).limit(50);
+        if (!active) return;
+        if (error) setAuthMessage(error.message);
+        else setLeaderboard(data ?? []);
+      }
+      if (active) setDataLoading(false);
+    };
+    void load();
+    return () => { active = false; };
+  }, [authUser, accountView]);
 
   const stopListening = useCallback(() => {
     const recognition = recognitionRef.current;
@@ -918,7 +1018,7 @@ export default function Home() {
                 G
               </span>
               <span className="text-lg font-semibold">
-                gd<span className="text-violet-400">arena</span>
+                <span className="text-white">Tap</span><span className="text-violet-400">asya</span>
               </span>
             </button>
 
@@ -950,6 +1050,7 @@ export default function Home() {
                     </div>
                     <h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-5xl">Your next level starts here.</h1>
                     <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 print:text-slate-600">A personalised debrief of your group discussion, with practical next steps and learning resources selected around your topic.</p>
+                    <p className="mt-2 text-xs text-slate-500 print:hidden">{authUser ? "This session is being saved to your Tapasya history." : "Want to revisit this report later? Sign in with Google before your next session; guest sessions are not stored."}</p>
                     <div className="mt-5 flex flex-wrap gap-2">
                       <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 print:border-slate-200 print:text-slate-700">{format}</span>
                       <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-slate-300 print:border-slate-200 print:text-slate-700">{language}</span>
@@ -1037,7 +1138,7 @@ export default function Home() {
                 </div>
 
                 <div className="relative mt-7 flex flex-col justify-between gap-3 border-t border-white/10 pt-6 sm:flex-row sm:items-center print:border-slate-200">
-                  <p className="text-xs leading-5 text-slate-500 print:text-slate-600">GD Arena coaching uses transcript-based signals, not a definitive measure of confidence or communication ability. Use the feedback as a practice guide.</p>
+                  <p className="text-xs leading-5 text-slate-500 print:text-slate-600">Tapasya coaching uses transcript-based signals, not a definitive measure of confidence or communication ability. Use the feedback as a practice guide.</p>
                   <button type="button" onClick={leaveRoom} className="shrink-0 rounded-xl bg-violet-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-400 print:hidden">Back to setup →</button>
                 </div>
               </div>
@@ -1580,7 +1681,7 @@ export default function Home() {
               G
             </span>
             <span className="text-lg font-semibold tracking-tight">
-              gd<span className="text-violet-400">arena</span>
+              <span className="text-white">Tap</span><span className="text-violet-400">asya</span>
             </span>
           </a>
 
@@ -1596,9 +1697,16 @@ export default function Home() {
             </span>
           </div>
 
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            Practice mode
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {authUser ? (
+              <>
+                <button type="button" onClick={() => setAccountView("history")} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-200 hover:bg-white/[0.05]">My history</button>
+                <button type="button" onClick={() => setAccountView("leaderboard")} className="rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-200 hover:bg-white/[0.05]">Leaderboard</button>
+                <button type="button" onClick={() => void signOut()} className="rounded-lg bg-white px-3 py-2 text-xs font-semibold text-slate-900">Sign out</button>
+              </>
+            ) : (
+              <button type="button" onClick={() => void signInWithGoogle()} disabled={authLoading} className="rounded-xl bg-white px-4 py-2.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-200 disabled:opacity-60">{authLoading ? "Connecting…" : "Continue with Google"}</button>
+            )}
           </div>
         </div>
       </nav>
@@ -1624,6 +1732,12 @@ export default function Home() {
             participants, think on your feet, and discover exactly where you
             can improve.
           </p>
+
+          <div className="mt-5 max-w-lg rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-sm font-medium text-white">Practice without an account. Sign in only to save your journey.</p>
+            <p className="mt-1 text-xs leading-5 text-slate-400">Google sign-in unlocks private session history and the community leaderboard. Your transcript stays private to your account.</p>
+            {authMessage && <p role="status" className="mt-2 text-xs leading-5 text-amber-200">{authMessage}</p>}
+          </div>
 
           <div className="mt-9 flex flex-wrap gap-x-6 gap-y-3 text-sm text-slate-300">
             <span className="flex items-center gap-2">
@@ -1896,7 +2010,7 @@ export default function Home() {
       <section id="features" className="relative z-10 border-t border-white/[0.07] bg-[#0b0d15]/70">
         <div className="mx-auto max-w-7xl px-5 py-16 sm:px-8 sm:py-20">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-300">Inside GD Arena</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-300">Inside Tapasya</p>
             <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">Everything you need to practise a better GD.</h2>
             <p className="mt-4 text-sm leading-7 text-slate-400 sm:text-base">A guided practice room, realistic AI perspectives and a useful debrief — all in one session. Choose your settings above, then explore what each feature does.</p>
           </div>
@@ -2005,9 +2119,27 @@ export default function Home() {
         </div>
       </section>
 
+      {accountView && authUser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="account-title">
+          <section className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-white/10 bg-[#11131d] p-5 shadow-2xl sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div><p className="text-xs uppercase tracking-[0.18em] text-violet-300">Tapasya account</p><h2 id="account-title" className="mt-2 text-2xl font-semibold">{accountView === "history" ? "Your past sessions" : "Community leaderboard"}</h2><p className="mt-2 text-sm text-slate-400">{accountView === "history" ? "Only you can access your saved session records." : "Ranked by completed practice sessions, then total words spoken. This is an activity ranking, not an AI-assessed skill score."}</p></div>
+              <button type="button" onClick={() => setAccountView(null)} className="rounded-lg border border-white/10 px-3 py-2 text-sm text-slate-300 hover:bg-white/5" aria-label="Close">✕</button>
+            </div>
+            <div className="mt-5 flex gap-2"><button onClick={() => setAccountView("history")} className={`rounded-lg px-3 py-2 text-sm ${accountView === "history" ? "bg-violet-500 text-white" : "border border-white/10 text-slate-300"}`}>My history</button><button onClick={() => setAccountView("leaderboard")} className={`rounded-lg px-3 py-2 text-sm ${accountView === "leaderboard" ? "bg-violet-500 text-white" : "border border-white/10 text-slate-300"}`}>Leaderboard</button></div>
+            {dataLoading ? <p className="py-12 text-center text-sm text-slate-400">Loading…</p> : accountView === "history" ? (
+              sessionHistory.length ? <div className="mt-4 space-y-3">{sessionHistory.map((item) => <article key={item.id} className="rounded-xl border border-white/10 bg-white/[0.025] p-4"><div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-medium text-white">{item.topic}</h3><p className="mt-1 text-xs text-slate-400">{item.format} · {item.language} · {new Date(item.created_at).toLocaleString()}</p></div><span className="rounded-full bg-violet-400/10 px-3 py-1 text-xs text-violet-200">{Math.round(item.duration_seconds / 60)} min</span></div><p className="mt-3 text-xs text-slate-300">{item.words_spoken} words · {item.filler_count} possible filler words</p></article>)}</div> : <p className="py-12 text-center text-sm text-slate-400">No saved sessions yet. Finish a practice session while signed in to save your report.</p>
+            ) : (
+              leaderboard.length ? <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-xs text-slate-500"><tr><th className="p-3">Rank</th><th className="p-3">Participant</th><th className="p-3">Sessions</th><th className="p-3">Words</th></tr></thead><tbody>{leaderboard.map((item,index) => <tr key={item.user_id} className="border-t border-white/[0.07]"><td className="p-3 font-semibold text-violet-200">#{index+1}</td><td className="p-3 text-slate-200">{item.display_name || "Tapasya learner"}{item.user_id === authUser.id ? <span className="ml-2 text-xs text-emerald-300">You</span> : null}</td><td className="p-3 text-slate-300">{item.sessions_completed}</td><td className="p-3 text-slate-300">{item.total_words}</td></tr>)}</tbody></table></div> : <p className="py-12 text-center text-sm text-slate-400">No leaderboard entries yet. Complete a signed-in session to appear here.</p>
+            )}
+            {authMessage && <p role="status" className="mt-4 text-xs text-amber-200">{authMessage}</p>}
+          </section>
+        </div>
+      )}
+
       <footer className="relative z-10 border-t border-white/[0.07]">
         <div className="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:px-8">
-          <span>© 2026 GD Arena · Practice makes progress.</span>
+          <span>© 2026 Tapasya · Practice makes progress.</span>
           <span>Built for the next generation of confident speakers.</span>
         </div>
       </footer>
