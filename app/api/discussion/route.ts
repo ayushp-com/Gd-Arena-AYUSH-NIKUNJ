@@ -1,4 +1,4 @@
-
+```ts
 import Groq from "groq-sdk";
 import { NextResponse } from "next/server";
 
@@ -123,7 +123,7 @@ export async function POST(request: Request) {
               typeof (item as HistoryItem).text === "string"
           )
           .slice(-10)
-          .map((item) => ({
+          .map((item: HistoryItem) => ({
             speaker: item.speaker.slice(0, 50),
             text: item.text.slice(0, 1000),
           }))
@@ -210,7 +210,8 @@ Rules:
       temperature: 0.6,
     });
 
-    const content = completion.choices[0]?.message?.content?.trim();
+    const content =
+      completion.choices[0]?.message?.content?.trim();
 
     if (!content) {
       return NextResponse.json(
@@ -251,15 +252,17 @@ Rules:
           typeof turn.text === "string" &&
           turn.text.trim().length > 0
       )
-      .map((turn: {
-        speaker: string;
-        role: string;
-        text: string;
-      }) => ({
-        speaker: turn.speaker.trim().slice(0, 50),
-        role: turn.role.trim().slice(0, 80),
-        text: turn.text.trim().slice(0, 2000),
-      }));
+      .map(
+        (turn: {
+          speaker: string;
+          role: string;
+          text: string;
+        }) => ({
+          speaker: turn.speaker.trim().slice(0, 50),
+          role: turn.role.trim().slice(0, 80),
+          text: turn.text.trim().slice(0, 2000),
+        })
+      );
 
     if (turns.length < 3 || turns[0].speaker !== "Ananya") {
       return NextResponse.json(
@@ -273,7 +276,9 @@ Rules:
       (turn) => turn.speaker
     );
 
-    const validNames = new Set(participants.map((p) => p.name));
+    const validNames = new Set(
+      participants.map((p) => p.name)
+    );
 
     if (
       new Set(participantNames).size !== 2 ||
@@ -299,12 +304,18 @@ Rules:
     let message = "Could not generate the discussion response.";
 
     if (status === 429) {
-      message = "Groq rate limit reached. Please wait and try again.";
+      message =
+        "Groq rate limit reached. Please wait and try again.";
     } else if (status === 401 || status === 403) {
-      message = "Groq API authentication failed. Check your API key.";
+      message =
+        "Groq API authentication failed. Check your API key.";
     } else if (status === 404) {
-      message = "The configured Groq model is unavailable for this API key.";
-    } else if (process.env.NODE_ENV === "development" && error instanceof Error) {
+      message =
+        "The configured Groq model is unavailable for this API key.";
+    } else if (
+      process.env.NODE_ENV === "development" &&
+      error instanceof Error
+    ) {
       message = error.message;
     }
 
@@ -314,3 +325,4 @@ Rules:
     );
   }
 }
+```
